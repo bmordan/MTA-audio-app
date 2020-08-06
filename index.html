@@ -169,6 +169,7 @@
                     ].map(row => row.map(freq => {
                         const note = new Note(freq)
                         $("#grid").append(note.el)
+                        return note
                     }))
                     this.dismissModal()
                 }
@@ -208,14 +209,14 @@
                 }
 
                 _tick() {
-                    if ($("#grid").is(":visible")) {
+                    if ($("#grid").is(":visibgit le")) {
                         this._play()
                         this._record()
                         this.bar = this.bar === 7 ? 0 : this.bar + 1
                     }
                 }
 
-                _play() {                    
+                _play() {
                     this.grid
                         .map(row => row[this.bar])
                         .flat()
@@ -281,7 +282,9 @@
                     this.worker = new Worker("./worker.js")
                     this.worker.onmessage = this._tick.bind(this)
                     this.track = undefined
-                    this.canvasContext = undefined
+                    this.canvas = undefined
+                    this.w = undefined
+                    this.h = undefined
                     this.isPlaying = false
                 }
 
@@ -310,23 +313,37 @@
                 _draw() {
                     if (!MyAppAudio.context) MyAppAudio.setContext()
                     if (this.isPlaying) requestAnimationFrame(this._draw.bind(this))
-                    MyAppAudio.analyser.getByteTimeDomainData(MyAppAudio.audioData)
-                    console.log(MyAppAudio.audioData.slice(0, 22))
+                    MyAppAudio.analyser.getByteFrequencyData(MyAppAudio.audioData)
+                    this.canvas.ctx.clearRect(0, 0, this.canvas.w, this.canvas.h)
+                    const barWidth = 16
+                    
+                    MyAppAudio.audioData.reduce((x, barHeight) => {
+                        const y = barHeight / 2
+                        this.canvas.ctx.fillRect(x, this.canvas.h - y, barWidth, y)
+                        return x + barWidth + 1
+                    }, 0)
                 }
 
                 _render() {
                     const playerElement = `
-                        <article>
+                        <article style="position:relative;">
                             <h2>${this.track.trackname}</h2>
                             <canvas></canvas>
-                            <nav>
+                            <nav style="position:absolute:bottom:0;">
                                 <button onclick="player.play()">Play</button>
                                 <button onclick="player.stop()">Stop</button>
                             </nav>
                         </article>
                     `
                     $("#player").append(playerElement)
-                    this.canvasContext = $('canvas').get(0).getContext('2d')
+                    $('canvas').get(0).setAttribute('width', $("#player").width())
+                    $('canvas').get(0).setAttribute('height', $("#player").height() - 130)
+                    this.canvas = {
+                        ctx: $('canvas').get(0).getContext('2d'),
+                        w: $('canvas').width(),
+                        h: $('canvas').height()
+                    }
+                    this.canvas.ctx.fillStyle = "Brown"
                 }
 
                 _tick() {
