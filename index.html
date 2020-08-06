@@ -104,8 +104,12 @@
         <script>
             class MyAppAudio {
                 static context = undefined
+                static analyser = undefined
+                static audioData = undefined
                 static setContext = () => {
                     this.context = new AudioContext()
+                    this.analyser = this.context.createAnalyser()
+                    this.audioData = new Uint8Array(this.analyser.frequencyBinCount)
                 }
             }
             class Note extends MyAppAudio {
@@ -136,11 +140,16 @@
                     return this
                 }
 
-                play() {
+                play(visualise) {
                     if (!this.constructor.context) this.constructor.setContext()
                     const o = this.constructor.context.createOscillator()
                     o.frequency.value = this.freq
-                    o.connect(this.constructor.context.destination)
+                    if (visualise) {
+                        o.connect(this.constructor.analyser)
+                        this.constructor.analyser.connect(this.constructor.context.destination)
+                    } else {
+                        o.connect(this.constructor.context.destination)
+                    }
                     o.start()
                     o.stop(this.constructor.context.currentTime + .5)
                 }
@@ -254,8 +263,6 @@
                     $('aside').append("<h2>Tracks</h2>")
 
                     this.tracks.forEach(track => {
-                        console.log(JSON.stringify(track))
-                        console.log(btoa(JSON.stringify(track)))
                         const trackElement = [
                             "<article>",
                             `<button onclick="player.load('${btoa(JSON.stringify(track))}')">`,
@@ -274,6 +281,8 @@
                     this.worker = new Worker("./worker.js")
                     this.worker.onmessage = this._tick.bind(this)
                     this.track = undefined
+                    this.canvasContext = undefined
+                    this.isPlaying = false
                 }
 
                 load(track) {
@@ -286,6 +295,8 @@
 
                 play() {
                     this.worker.postMessage("start")
+                    this.isPlaying = true
+                    this._draw()
                 }
 
                 stop() {
@@ -293,13 +304,21 @@
                     $("#player").empty().hide()
                     $("#grid").show()
                     this.track = undefined
+                    this.isPlaying = false
+                }
+
+                _draw() {
+                    if (!MyAppAudio.context) MyAppAudio.setContext()
+                    if (this.isPlaying) requestAnimationFrame(this._draw.bind(this))
+                    MyAppAudio.analyser.getByteTimeDomainData(MyAppAudio.audioData)
+                    console.log(MyAppAudio.audioData.slice(0, 22))
                 }
 
                 _render() {
                     const playerElement = `
                         <article>
                             <h2>${this.track.trackname}</h2>
-                            <canvas id="player"></canvas>
+                            <canvas></canvas>
                             <nav>
                                 <button onclick="player.play()">Play</button>
                                 <button onclick="player.stop()">Stop</button>
@@ -307,6 +326,7 @@
                         </article>
                     `
                     $("#player").append(playerElement)
+                    this.canvasContext = $('canvas').get(0).getContext('2d')
                 }
 
                 _tick() {
@@ -314,7 +334,7 @@
                     this.track.data.shift()
                         .filter(note => note)
                         .map(freq => new Note(freq))
-                        .forEach(note => note.play())
+                        .forEach(note => note.play("WITH_VISUALISER"))
                 }
             }
 
