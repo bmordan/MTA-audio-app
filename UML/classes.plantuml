@@ -1,0 +1,51 @@
+@startuml
+class Tracks {
+    ws: WebSocket
+    tracks: Array
+    __public__
+    save()
+    __private__
+    _send()
+    _render()
+}
+class Grid {
+    worker: Worker
+    grid: Array
+    track: Array
+    bar: Number
+    __public__
+    record()
+    stop()
+    saveTrack()
+    dissmissModal()
+    __private__
+    _tick()
+    _play()
+    _record()
+}
+class MyAppAudio {
+    context: AudioContext
+    __public__
+    setContext()
+}
+class Note {
+    freq: Number
+    el: HTMLElement
+    __public__
+    toggle()
+    renderSelected()
+    highlight()
+    play()
+}
+class Player {
+    worker: Worker
+    track: Array
+    __public__
+    load()
+    play()
+    stop()
+    _render()
+    _tick()
+}
+MyAppAudio <|-- Note
+@enduml

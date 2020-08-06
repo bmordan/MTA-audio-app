@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script
+            src="http://code.jquery.com/jquery-3.5.1.slim.min.js"
+            integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs="
+            crossorigin="anonymous">
+        </script>
+        <style>
+            samp {
+                display: inline-block;
+                width: 3rem;
+                height: 3rem;
+                margin: .25rem;
+            }
+            .selected {
+                background-color: hotpink;
+            }
+            .unselected {
+                background-color: orchid;
+            }
+        </style>
+    </head>
+    <body>
+        <main id="grid">
+        </main>
+        <script>
+            class Note {
+                constructor() {
+                    this.selected = false
+                    this.el = $("<samp></samp>")
+                    this.el.on('click', this.toggle.bind(this))
+                    this.renderSelected()
+                    $("#grid").append(this.el)
+                }
+
+                toggle (evt) {
+                    this.selected = !this.selected
+                    this.renderSelected()
+                }
+
+                renderSelected () {
+                    this.el.removeClass(["selected", "unselected"])
+                    this.el.addClass(this.selected ? "selected" : "unselected")
+                }
+            }
+            new Note()
+            new Note()
+        </script>
+    </body>
+</html>

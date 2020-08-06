@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script
+            src="http://code.jquery.com/jquery-3.5.1.slim.min.js"
+            integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs="
+            crossorigin="anonymous">
+        </script>
+        <style>
+            * {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            }
+            main {
+                display: grid;
+                grid-template-columns: 70vw 30vw;
+            }
+            main section {
+                display: flex;
+                flex-direction: column;
+            }
+            main section main {
+                flex: auto;
+                background-color: beige;
+                height: 60vh;
+            }
+            main section main #grid {
+                margin: auto;
+                display: grid;
+                grid-template-columns: repeat(8, 3.5rem);
+                grid-template-rows: repeat(4, 3.5rem);
+            }
+            main section nav {
+                padding: 1rem;
+                flex: none;
+                text-align: center;
+            }
+            main aside {
+                padding: 1rem;
+            }
+            samp {
+                width: 3rem;
+                height: 3rem;
+                margin: 0.25rem;
+                box-shadow: 0 1px 2px -4px black;
+            }
+            .selected {
+                background-color: cadetblue;
+            }
+            .unselected {
+                background-color: burlywood;
+            }
+            .highlight {
+                border: darkcyan 2px solid;
+            }
+            #modal, form {
+                display: flex;
+                align-items: center;
+                justify-content: center;                
+            }
+            #modal {
+                position: absolute;
+                background-color: rgba(0,0,0,0.8);
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+            }
+            #modal form {
+                padding: 1rem;
+                background-color: whitesmoke;
+                width: 40vw;
+                height: 20vh;
+            }
+            aside button {
+                padding: .5rem 1rem;
+                min-width: 16rem;
+                margin: .5rem 0;
+            }
+        </style>
+    </head>
+    <body>
+        <header><h1>Audio Grid</h1></header>
+        <main>
+            <section>
+                <main>
+                    <section id="grid"></section>
+                    <section id="player"></section>
+                </main>
+                <nav>
+                    <button onclick="grid.record()">Record</button>
+                    <button onclick="grid.stop()">Stop</button>
+                </nav>
+            </section>
+            <aside>
+            </aside>            
+        </main>
+        <section id="modal">
+            <form onsubmit="event.preventDefault();grid.saveTrack(this);return false;">
+                <input name="trackname" required pattern="[a-zA-Z0-9\s_-]+" placeholder="Trackname" />
+                <button onclick="grid.dismissModal()">Cancel</button>
+                <button type="submit">Save</button>
+            </form>
+        </section>
+        <script>
+            class MyAppAudio {
+                static context = undefined
+                static setContext = () => {
+                    this.context = new AudioContext()
+                }
+            }
+            class Note extends MyAppAudio {
+                constructor(freq) {
+                    super()
+                    this.freq = freq || 4444
+                    this.selected = false
+                    this.el = $("<samp></samp>")
+                    this.el.on('click', this.toggle.bind(this))
+                    this.renderSelected()
+                }
+
+                toggle (evt) {
+                    this.selected = !this.selected
+                    this.renderSelected()
+                }
+
+                renderSelected () {
+                    this.el.removeClass(["selected", "unselected"])
+                    this.el.addClass(this.selected ? "selected" : "unselected")
+                }
+
+                highlight() {
+                    this.el.addClass("highlight")
+                    setTimeout(() => {
+                        this.el.removeClass("highlight")
+                    }, 300)
+                    return this
+                }
+
+                play() {
+                    if (!this.constructor.context) this.constructor.setContext()
+                    const o = this.constructor.context.createOscillator()
+                    o.frequency.value = this.freq
+                    o.connect(this.constructor.context.destination)
+                    o.start()
+                    o.stop(this.constructor.context.currentTime + .5)
+                }
+            }
+
+            class Grid {
+                constructor() {
+                    this.worker = new Worker("/worker.js")
+                    this.bar = 0
+                    this.worker.onmessage = this._tick.bind(this)
+                    this.track = []
+                    this.grid = [
+                        [1047.0, 1175, 1319, 1397, 1480, 1568, 1760, 1976],
+                        [523.3, 587.3, 659.3, 698.5, 740, 784, 880, 987.8],
+                        [261.6, 293.7, 329.6, 349.2, 370, 392, 440, 493.9],
+                        [130.8, 146.8, 164.8, 174.6, 185, 196, 220, 246.9]
+                    ].map(row => row.map(freq => {
+                        const note = new Note(freq)
+                        $("#grid").append(note.el)
+                    }))
+                    this.dismissModal()
+                }
+
+                record() {
+                    this.track = []
+                    this.worker.postMessage("start")
+                }
+
+                stop() {
+                    this.worker.postMessage("stop")
+                    this.grid.forEach(row => row.forEach(note => {
+                        note.selected = false
+                        note.renderSelected()
+                    }))
+                    this.bar = 0
+                    $("#modal").show()
+                }
+
+                dismissModal() {
+                    $("#modal").hide()
+                    $("#modal input").val("")
+                }
+
+                saveTrack(form) {
+                    const formData = new FormData(form)
+                    const trackname = formData.get("trackname")
+                    const trackdata = JSON.stringify({
+                        trackname: trackname,
+                        data: this.track,
+                        city: "",
+                        countryCode: ""
+                    })
+                    this.dismissModal()
+                    this.track = []
+                    tracks.save(trackdata)
+                }
+
+                _tick() {
+                    if ($("#grid").is(":visible")) {
+                        this._play()
+                        this._record()
+                        this.bar = this.bar === 7 ? 0 : this.bar + 1
+                    }
+                }
+
+                _play() {                    
+                    this.grid
+                        .map(row => row[this.bar])
+                        .flat()
+                        .map(note => note.highlight())
+                        .filter(note => note.selected)
+                        .forEach(note => note.play())
+                }
+
+                _record() {
+                    this.track.push(
+                        this.grid
+                            .map(row => row[this.bar])
+                            .flat()
+                            .map(note => note.selected ? note.freq : null)
+                    )
+                }
+            }
+
+            class Tracks {
+                constructor(tracks) {
+                    this.ws = new WebSocket('ws://fathomless-reaches-81353.herokuapp.com/socket')
+                    this.ws.onmessage = ({data}) => {
+                        if (data === "collect") {
+                            this._send()
+                        } else {
+                            this.tracks = JSON.parse(data).map(JSON.parse)
+                            this._render()
+                        }
+                    }
+                    this.tracks = []
+                }
+
+                save(track) {
+                    let tracks = JSON.parse(localStorage.getItem("tracks") || "[]")
+                    localStorage.setItem("tracks", JSON.stringify([...tracks, track]))
+                    this._send()
+                }
+
+                _send() {
+                    this.ws.send(localStorage.getItem("tracks") || "[]")
+                }
+
+                _render() {
+                    $('aside').empty()
+                    $('aside').append("<h2>Tracks</h2>")
+
+                    this.tracks.forEach(track => {
+                        console.log(JSON.stringify(track))
+                        console.log(btoa(JSON.stringify(track)))
+                        const trackElement = [
+                            "<article>",
+                            `<button onclick="player.load('${btoa(JSON.stringify(track))}')">`,
+                            track.trackname,
+                            "</button>",
+                            "</article>"
+                        ].join("")
+                        $('aside').append(trackElement)
+                    })
+                }
+            }
+
+            class Player {
+                constructor() {
+                    $("#player").hide()
+                    this.worker = new Worker("./worker.js")
+                    this.worker.onmessage = this._tick.bind(this)
+                    this.track = undefined
+                }
+
+                load(track) {
+                    if (this.track) return
+                    $("#player").show()
+                    $("#grid").hide()
+                    this.track = JSON.parse(atob(track))
+                    this._render()
+                }
+
+                play() {
+                    this.worker.postMessage("start")
+                }
+
+                stop() {
+                    this.worker.postMessage("stop")
+                    $("#player").empty().hide()
+                    $("#grid").show()
+                    this.track = undefined
+                }
+
+                _render() {
+                    const playerElement = `
+                        <article>
+                            <h2>${this.track.trackname}</h2>
+                            <canvas id="player"></canvas>
+                            <nav>
+                                <button onclick="player.play()">Play</button>
+                                <button onclick="player.stop()">Stop</button>
+                            </nav>
+                        </article>
+                    `
+                    $("#player").append(playerElement)
+                }
+
+                _tick() {
+                    if (!this.track.data.length) return this.stop()
+                    this.track.data.shift()
+                        .filter(note => note)
+                        .map(freq => new Note(freq))
+                        .forEach(note => note.play())
+                }
+            }
+
+            const grid = new Grid()
+            const tracks = new Tracks()
+            const player = new Player()
+        </script>
+    </body>
+</html>
