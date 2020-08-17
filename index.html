@@ -209,7 +209,7 @@
                 }
 
                 _tick() {
-                    if ($("#grid").is(":visibgit le")) {
+                    if ($("#grid").is(":visible")) {
                         this._play()
                         this._record()
                         this.bar = this.bar === 7 ? 0 : this.bar + 1
@@ -315,7 +315,7 @@
                     if (this.isPlaying) requestAnimationFrame(this._draw.bind(this))
                     MyAppAudio.analyser.getByteFrequencyData(MyAppAudio.audioData)
                     this.canvas.ctx.clearRect(0, 0, this.canvas.w, this.canvas.h)
-                    const barWidth = 16
+                    const barWidth = 32
                     
                     MyAppAudio.audioData.reduce((x, barHeight) => {
                         const y = barHeight / 2
@@ -343,7 +343,7 @@
                         w: $('canvas').width(),
                         h: $('canvas').height()
                     }
-                    this.canvas.ctx.fillStyle = "Brown"
+                    this.canvas.ctx.fillStyle = "burlywood"
                 }
 
                 _tick() {

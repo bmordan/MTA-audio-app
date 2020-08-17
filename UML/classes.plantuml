@@ -24,9 +24,10 @@ class Grid {
     _record()
 }
 class MyAppAudio {
-    context: AudioContext
-    __public__
-    setContext()
+    {static} +context: AudioContext
+    {static} +analyser: Analyser
+    {static} +audioData: Uint8Array
+    {static} +setContext()
 }
 class Note {
     freq: Number
