@@ -1,0 +1,13 @@
+/* css for mobile goes here */
+
+@media screen and (min-width: 30em) {
+  /* css for small screens goes here */
+}
+
+@media screen and (min-width: 30em) and (max-width: 60em) {
+  /* css for mid screens goes here */
+}
+
+@media screen and (min-width: 60em) {
+  /* css for massive screens goes here */
+}
