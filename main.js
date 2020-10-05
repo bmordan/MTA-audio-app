@@ -1,23 +1,13 @@
-const arr_a = [1,2,3,4]
-const arr_b = [1,4,3,2]
+class MyAppAudio {
+	static context = undefined;
+	static setContext = () => {
+	  this.context = new AudioContext()
+	}
+  }
 
-function are_equal(arr_a, arr_b) {
-    let start_slice = 0
-    for (let i = 0; i < arr_b.length; i++) {
-        if (arr_b[i] !== arr_a[i]) {
-            start_slice = i;
-            break;
-        }
-    }
-    const part1 = arr_b.slice(0, start_slice)
-    const part2 = arr_b.slice(start_slice, arr_b.length)
-    
-    part1.concat(part2.reverse()).toString() === arr_a.toString()
-}
-are_equal(arr_a, arr_b)
-
-class Note {
+class Note extends MyAppAudio {
 	constructor(freq) {
+		super()
 		this.freq = freq
 		this.selected = false
 		this.el = $("<samp></samp>")
@@ -31,6 +21,21 @@ class Note {
 	renderSelected () {
 		this.el.removeClass(["selected", "unselected"])
 		this.el.addClass(this.selected ? "selected" : "unselected")
+	}
+	highlight() {
+		this.el.addClass("highlight")
+		setTimeout(() => {
+			this.el.removeClass("highlight")
+		}, 300)
+		return this
+	}
+	play() {
+		if (!this.constructor.context) this.constructor.setContext()
+		const o = this.constructor.context.createOscillator()
+		o.frequency.value = this.freq
+		o.connect(this.constructor.context.destination)
+		o.start()
+		o.stop(this.constructor.context.currentTime + .3)
 	}
 }
 
@@ -64,24 +69,13 @@ class Grid {
 		this._play()
 		this.bar = this.bar === 7 ? 0 : this.bar + 1
 	}
-}
 
-function AppAudio () {}
-AppAudio.prototype.context = undefined
-AppAudio.prototype.setContext = function() {
-	this.context = new AudioContext()
-}
-
-const Note = function (freq) {
-	if (!this.constructor.context) this.constructor.setContext()
-	const o = this.constructor.context.createOscillator()
-	o.frequency.value = freq
-	o.connect(this.constructor.context.destination)
-	o.start()
-	o.stop(this.constructor.context.currentTime + 1)
-}
-Note.prototype = Object.create(new AppAudio())
-
-function play (freq) {
-	new Note(freq)
+	_play() {
+		this.grid
+			.map(row => row[this.bar])
+			.flat()
+			.map(note => note.highlight())
+			.filter(note => note)
+			.forEach(note => note.play())
+	}
 }
